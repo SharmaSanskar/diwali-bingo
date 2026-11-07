@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RoomStatus } from '../lib/room';
+import { supportsPlayOnSilent } from '../lib/audio';
 import type { Settings } from '../lib/storage';
 import { Diya } from './icons/Diya';
 import { Torana } from './icons/Torana';
@@ -123,6 +124,20 @@ export function Header(props: Props) {
                   className="h-5 w-5 accent-gold"
                 />
               </label>
+              {supportsPlayOnSilent() && (
+                <label className="mb-3 flex items-center justify-between gap-3">
+                  <span className="text-cream/95">
+                    Play sounds even on silent
+                    <span className="block text-xs text-cream/75">Pauses music playing on this phone</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={settings.playOnSilent}
+                    onChange={(e) => onSettings({ playOnSilent: e.target.checked, muted: false })}
+                    className="h-5 w-5 shrink-0 accent-gold"
+                  />
+                </label>
+              )}
               <label className="block">
                 <span className="mb-1 flex justify-between text-cream/95">
                   Volume <span className="tabular-nums">{Math.round(settings.volume * 100)}%</span>

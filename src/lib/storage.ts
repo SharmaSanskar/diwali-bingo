@@ -129,6 +129,8 @@ export interface Settings {
   volume: number;
   friendSounds: boolean;
   notifications: boolean;
+  /** iOS: ignore the silent switch (pauses other audio on this phone). */
+  playOnSilent: boolean;
 }
 
 export const defaultSettings: Settings = {
@@ -136,6 +138,7 @@ export const defaultSettings: Settings = {
   volume: 0.8,
   friendSounds: true,
   notifications: false,
+  playOnSilent: false,
 };
 
 export function loadSettings(): Settings {
@@ -147,6 +150,7 @@ export function loadSettings(): Settings {
       typeof v.volume === 'number' && v.volume >= 0 && v.volume <= 1 ? v.volume : defaultSettings.volume,
     friendSounds: v.friendSounds !== false,
     notifications: v.notifications === true,
+    playOnSilent: v.playOnSilent === true,
   };
 }
 

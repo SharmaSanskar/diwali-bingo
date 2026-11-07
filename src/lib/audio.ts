@@ -5,6 +5,30 @@ let master: GainNode | null = null;
 let muted = false;
 let volume = 0.8;
 let lastFriendTick = 0;
+let playOnSilent = false;
+
+type AudioSessionNav = Navigator & { audioSession?: { type: string } };
+
+/** Safari 17+ only: lets Web Audio play with the silent switch on. */
+export function supportsPlayOnSilent(): boolean {
+  return typeof navigator !== 'undefined' && 'audioSession' in navigator;
+}
+
+function applySession(): void {
+  const session = (navigator as AudioSessionNav).audioSession;
+  if (!session) return;
+  try {
+    // 'playback' ignores the silent switch but pauses other apps' audio; 'auto' follows the switch.
+    session.type = playOnSilent ? 'playback' : 'auto';
+  } catch {
+    // ignore
+  }
+}
+
+export function setPlayOnSilent(on: boolean): void {
+  playOnSilent = on;
+  applySession();
+}
 
 function getCtor(): typeof AudioContext | undefined {
   if (typeof window === 'undefined') return undefined;
@@ -26,6 +50,7 @@ let primed = false;
 export function unlockAudio(): void {
   const Ctor = getCtor();
   if (!Ctor) return;
+  applySession();
   if (!ctx || ctx.state === 'closed') {
     try {
       ctx = new Ctor();

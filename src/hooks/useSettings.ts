@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { setMuted, setVolume } from '../lib/audio';
+import { setMuted, setPlayOnSilent, setVolume } from '../lib/audio';
 import { loadSettings, saveSettings, type Settings } from '../lib/storage';
 
 export function useSettings() {
@@ -9,6 +9,7 @@ export function useSettings() {
     saveSettings(settings);
     setMuted(settings.muted);
     setVolume(settings.volume);
+    setPlayOnSilent(settings.playOnSilent);
   }, [settings]);
 
   const update = useCallback((patch: Partial<Settings>) => {
