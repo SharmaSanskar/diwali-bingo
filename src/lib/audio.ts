@@ -12,23 +12,51 @@ function getCtor(): typeof AudioContext | undefined {
   return window.AudioContext ?? w.webkitAudioContext;
 }
 
+/**
+ * iOS uses an extra 'interrupted' state (screen lock, app switch, incoming call), so anything
+ * other than 'running' needs a resume, not just 'suspended'.
+ */
+function needsResume(c: AudioContext): boolean {
+  return (c.state as string) !== 'running' && c.state !== 'closed';
+}
+
+let primed = false;
+
 /** Create or resume the AudioContext. Call from a user gesture. */
 export function unlockAudio(): void {
   const Ctor = getCtor();
   if (!Ctor) return;
-  if (!ctx) {
+  if (!ctx || ctx.state === 'closed') {
     try {
       ctx = new Ctor();
       master = ctx.createGain();
       master.gain.value = muted ? 0 : volume;
       master.connect(ctx.destination);
+      primed = false;
     } catch {
       ctx = null;
       master = null;
       return;
     }
   }
-  if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined);
+  if (needsResume(ctx)) void ctx.resume().catch(() => undefined);
+  // Older iOS only truly unlocks once something is played inside the gesture: play one silent sample.
+  if (!primed) {
+    try {
+      const src = ctx.createBufferSource();
+      src.buffer = ctx.createBuffer(1, 1, 22050);
+      src.connect(ctx.destination);
+      src.start(0);
+      primed = true;
+    } catch {
+      // ignore
+    }
+  }
+}
+
+/** Resume after the tab comes back (iOS suspends/interrupts audio when the phone locks). */
+export function resumeIfNeeded(): void {
+  if (ctx && needsResume(ctx)) void ctx.resume().catch(() => undefined);
 }
 
 function applyGain(): void {
@@ -52,7 +80,7 @@ interface Out {
 
 function ready(): Out | null {
   if (muted || !ctx || !master) return null;
-  if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined);
+  if (needsResume(ctx)) void ctx.resume().catch(() => undefined);
   return { c: ctx, out: master };
 }
 
