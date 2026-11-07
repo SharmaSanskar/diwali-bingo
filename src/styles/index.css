@@ -1,0 +1,438 @@
+@import 'tailwindcss';
+
+@theme {
+  /* Poster palette: hot magenta ground, bright yellow, near-black ink. Token names kept for reuse. */
+  --color-night: #7d0a45;      /* deepest magenta */
+  --color-night-2: #9e0f58;    /* panel magenta */
+  --color-plum: #b8126a;
+  --color-plum-2: #d01a7a;
+  --color-magenta: #d4197c;    /* poster ground */
+  --color-magenta-hot: #ec3a93;
+  --color-ink: #2a0716;        /* outlines + drop shadows */
+  --color-berry: #a3104f;      /* text on yellow */
+  --color-marigold: #ff9f1c;
+  --color-saffron: #ffb627;
+  --color-gold: #ffe81a;       /* poster yellow */
+  --color-gold-soft: #fff27a;
+  --color-rani: #ff2d8a;
+  --color-rani-soft: #ffd0e6;
+  --color-teal: #5ef2d6;
+  --color-cream: #fff8e6;
+
+  --font-display: 'Baloo 2', 'Bangers', ui-rounded, system-ui, sans-serif;
+  --font-comic: 'Bangers', 'Baloo 2', Impact, sans-serif;
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@layer base {
+  /* background on html only: a body background would paint over the -z-10 poster backdrop */
+  html {
+    background: var(--color-magenta);
+  }
+  html,
+  body {
+    color: var(--color-cream);
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-gold);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+  button {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  /* fieldsets default to min-width:min-content, which lets the avatar scroller widen the page */
+  fieldset {
+    min-width: 0;
+  }
+  html,
+  body {
+    overflow-x: clip;
+  }
+  /* iOS zooms into inputs under 16px */
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* Panels: darker magenta, yellow outline, hard comic shadow. */
+@utility glass {
+  background: rgb(125 10 69 / 0.9);
+  border: 2px solid var(--color-gold);
+  box-shadow: 4px 4px 0 var(--color-ink);
+}
+
+/* Poster headline: flat yellow with a chunky black offset. */
+@utility text-gold-gradient {
+  color: var(--color-gold);
+  font-weight: 800;
+  text-shadow:
+    2px 2px 0 var(--color-ink),
+    3px 3px 0 var(--color-ink);
+}
+
+@utility btn-primary {
+  background: var(--color-gold);
+  color: var(--color-berry);
+  font-family: var(--font-display);
+  font-weight: 800;
+  border: 2px solid var(--color-ink);
+  border-radius: 9999px;
+  box-shadow: 3px 3px 0 var(--color-ink);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
+  &:hover {
+    filter: brightness(1.04);
+  }
+  &:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--color-ink);
+  }
+  &:disabled {
+    filter: grayscale(0.6) brightness(0.85);
+  }
+}
+
+@utility btn-ghost {
+  background: rgb(42 7 22 / 0.18);
+  border: 2px solid var(--color-gold);
+  color: var(--color-cream);
+  border-radius: 9999px;
+  transition: background 0.12s ease, transform 0.12s ease;
+  &:hover {
+    background: rgb(255 232 26 / 0.14);
+  }
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+@utility field {
+  background: var(--color-cream);
+  border: 2px solid var(--color-ink);
+  border-radius: 0.85rem;
+  color: var(--color-ink);
+  &::placeholder {
+    color: rgb(42 7 22 / 0.4);
+  }
+  &:focus {
+    outline: none;
+    border-color: var(--color-ink);
+    box-shadow: 0 0 0 3px var(--color-gold);
+  }
+}
+
+/* ---------- bingo card ---------- */
+
+.card-frame {
+  background: transparent;
+}
+
+.tile {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--color-gold);
+  border: 2px solid var(--color-ink);
+  box-shadow: 3px 3px 0 var(--color-ink);
+  color: var(--color-berry);
+  transition: background 0.2s ease, box-shadow 0.12s ease, transform 0.1s ease;
+}
+@media (min-width: 640px) {
+  .tile {
+    border-width: 3px;
+    box-shadow: 5px 5px 0 var(--color-ink);
+  }
+}
+.tile:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--color-ink);
+}
+/* crossed off: pressed into the page, marigold, struck through */
+.tile[aria-pressed='true'] {
+  background: var(--color-marigold);
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--color-ink);
+}
+.tile[aria-pressed='true'] .tile-text {
+  color: rgb(42 7 22 / 0.72);
+}
+
+/* free center: starburst drawn as SVG behind the text, no box */
+.tile-free {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  overflow: visible;
+}
+
+.tile-text {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--tile-font, 11px);
+  line-height: 1.08;
+  overflow-wrap: break-word;
+  hyphens: manual;
+  letter-spacing: -0.005em;
+}
+.tile-text.len-s { --tile-font: clamp(11px, 3.9cqw, 21px); }
+.tile-text.len-m { --tile-font: clamp(10px, 3.3cqw, 18px); }
+.tile-text.len-l { --tile-font: clamp(9px, 2.9cqw, 16px); }
+.tile-text.len-xl { --tile-font: clamp(8px, 2.4cqw, 13px); }
+.free-text {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(8px, 2.5cqw, 14px);
+  line-height: 1.05;
+  color: var(--color-berry);
+}
+
+/* stamp on mark */
+.anim-stamp-a {
+  animation: tile-stamp-a 0.42s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.anim-stamp-b {
+  animation: tile-stamp-b 0.42s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+@keyframes tile-stamp-a {
+  0% { scale: 1; }
+  28% { scale: 0.86; rotate: var(--rot, 0deg); }
+  62% { scale: 1.06; rotate: calc(var(--rot, 0deg) * -0.5); }
+  100% { scale: 1; rotate: 0deg; }
+}
+@keyframes tile-stamp-b {
+  0% { scale: 1; }
+  28% { scale: 0.86; rotate: var(--rot, 0deg); }
+  62% { scale: 1.06; rotate: calc(var(--rot, 0deg) * -0.5); }
+  100% { scale: 1; rotate: 0deg; }
+}
+.stamp-mark {
+  animation: stamp-in 0.45s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+@keyframes stamp-in {
+  0% { transform: scale(2.2) rotate(var(--rot, 0deg)); opacity: 0; }
+  60% { transform: scale(0.85) rotate(var(--rot, 0deg)); opacity: 1; }
+  100% { transform: scale(1) rotate(var(--rot, 0deg)); opacity: 1; }
+}
+.strike {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 50%;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--color-ink);
+  opacity: 0.55;
+  transform: rotate(-14deg);
+  pointer-events: none;
+  z-index: 11;
+}
+.ripple {
+  position: absolute;
+  inset: 12%;
+  border-radius: 9999px;
+  border: 3px solid var(--color-cream);
+  pointer-events: none;
+  animation: ripple 0.65s ease-out forwards;
+}
+@keyframes ripple {
+  0% { transform: scale(0.3); opacity: 0.9; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+
+/* completed line: white-hot outline + sweep */
+.in-line {
+  outline: 3px solid var(--color-cream);
+  outline-offset: 1px;
+  box-shadow: 0 0 16px rgb(255 242 122 / 0.9), 1px 1px 0 var(--color-ink) !important;
+}
+.in-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 25%, rgb(255 255 255 / 0.6) 50%, transparent 75%);
+  background-size: 260% 100%;
+  animation: sweep 2.8s ease-in-out infinite;
+  animation-delay: var(--sweep-delay, 0s);
+}
+@keyframes sweep {
+  0% { background-position: 130% 0; }
+  60%, 100% { background-position: -130% 0; }
+}
+
+/* own one-away */
+.near-line {
+  outline: 2px dashed rgb(255 248 230 / 0.7);
+  outline-offset: 1px;
+}
+.missing-square {
+  animation: missing-pulse 1.3s ease-in-out infinite;
+}
+@keyframes missing-pulse {
+  0%, 100% { box-shadow: 3px 3px 0 var(--color-ink), 0 0 0 0 rgb(255 248 230 / 0.9); }
+  50% { box-shadow: 3px 3px 0 var(--color-ink), 0 0 0 5px rgb(255 248 230 / 0.9); }
+}
+
+/* rules box from the poster */
+.rules-box {
+  background: rgb(160 12 86 / 0.92);
+  border: 3px solid var(--color-gold);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 0 0 2px var(--color-ink),
+    4px 4px 0 2px var(--color-ink);
+}
+
+/* poster rays behind everything */
+.rays {
+  background: repeating-conic-gradient(from -3deg at 50% 18%, rgb(255 255 255 / 0.07) 0deg 7deg, transparent 7deg 20deg);
+}
+.zigzag {
+  background:
+    linear-gradient(135deg, var(--color-gold) 25%, transparent 25%) 0 0 / 12px 12px,
+    linear-gradient(45deg, var(--color-gold) 25%, transparent 25%) 0 0 / 12px 12px;
+  background-repeat: repeat-y;
+}
+
+/* ---------- ornaments ---------- */
+
+.flame {
+  transform-origin: 50% 90%;
+  animation: flicker 1.6s ease-in-out infinite;
+}
+@keyframes flicker {
+  0%, 100% { transform: scale(1, 1) skewX(0deg); }
+  25% { transform: scale(0.96, 1.05) skewX(-2deg); }
+  50% { transform: scale(1.03, 0.95) skewX(1.5deg); }
+  75% { transform: scale(0.98, 1.03) skewX(-1deg); }
+}
+.flame-glow {
+  animation: glow-pulse 2.2s ease-in-out infinite;
+}
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+.twinkle {
+  animation: twinkle var(--tw-dur, 3s) ease-in-out infinite;
+  animation-delay: var(--tw-delay, 0s);
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.8); }
+  50% { opacity: 0.9; transform: scale(1.1); }
+}
+.edge-glow {
+  animation: edge-glow 3.4s ease-in-out infinite;
+}
+@keyframes edge-glow {
+  0%, 100% { opacity: 0.55; }
+  40% { opacity: 0.8; }
+  60% { opacity: 0.65; }
+}
+.spin-slow {
+  animation: spin 160s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.bulb {
+  animation: bulb 1.8s ease-in-out infinite;
+}
+.bulb:nth-child(2n) {
+  animation-delay: 0.9s;
+}
+@keyframes bulb {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ---------- overlays ---------- */
+
+.float-up {
+  animation: float-up 2.8s cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
+}
+@keyframes float-up {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  12% { transform: translateY(-4vh) scale(1.2); opacity: 1; }
+  100% { transform: translateY(-55vh) scale(1) rotate(12deg); opacity: 0; }
+}
+.toast-in {
+  animation: toast-in 0.3s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+@keyframes toast-in {
+  from { transform: translateY(-14px) scale(0.96); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.banner-in {
+  animation: banner-in 0.6s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes banner-in {
+  from { transform: scale(0.7); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.fade-in {
+  animation: fade-in 0.25s ease-out;
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.sheet-up {
+  animation: sheet-up 0.3s cubic-bezier(0.2, 1, 0.3, 1);
+}
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+.feed-in {
+  animation: feed-in 0.35s ease-out;
+}
+@keyframes feed-in {
+  from { transform: translateY(-6px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.live-dot {
+  animation: live 1.6s ease-in-out infinite;
+}
+@keyframes live {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(46 196 182 / 0.7); }
+  50% { box-shadow: 0 0 0 5px rgb(46 196 182 / 0); }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .float-up {
+    animation: fade-out-slow 2.2s linear forwards !important;
+  }
+  @keyframes fade-out-slow {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+}
