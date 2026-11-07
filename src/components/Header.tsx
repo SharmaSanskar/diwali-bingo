@@ -17,10 +17,24 @@ interface Props {
   onInvite: () => void;
   onCopyCode: () => void;
   onLeave: () => void;
+  onReconnect: () => void;
 }
 
-function StatusChip({ status }: { status: RoomStatus }) {
+function StatusChip({ status, onReconnect }: { status: RoomStatus; onReconnect: () => void }) {
   if (status === 'connected') return null;
+  if (status === 'reconnecting') {
+    return (
+      <button
+        type="button"
+        onClick={onReconnect}
+        role="status"
+        className="min-h-6 animate-pulse rounded-full border border-marigold px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-marigold"
+        aria-label="Reconnecting. Tap to retry now"
+      >
+        Reconnecting… tap to retry
+      </button>
+    );
+  }
   const map: Record<Exclude<RoomStatus, 'connected'>, { text: string; cls: string }> = {
     connecting: { text: 'Connecting…', cls: 'border-cream/60 text-cream' },
     reconnecting: { text: 'Reconnecting…', cls: 'border-marigold text-marigold animate-pulse' },
@@ -35,8 +49,19 @@ function StatusChip({ status }: { status: RoomStatus }) {
 }
 
 export function Header(props: Props) {
-  const { title, roomCode, playerCount, status, settings, onSettings, onToggleNotifications, onInvite, onCopyCode, onLeave } =
-    props;
+  const {
+    title,
+    roomCode,
+    playerCount,
+    status,
+    settings,
+    onSettings,
+    onToggleNotifications,
+    onInvite,
+    onCopyCode,
+    onLeave,
+    onReconnect,
+  } = props;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -77,11 +102,11 @@ export function Header(props: Props) {
             >
               {roomCode}
             </button>
-            <span className="flex items-center gap-1" aria-label={`${playerCount} ${playerCount === 1 ? 'player' : 'players'} here`}>
+            <span className="flex items-center gap-1" aria-label={`${playerCount} ${playerCount === 1 ? 'player' : 'players'} here now`}>
               <UsersIcon className="h-3.5 w-3.5" />
               {playerCount}
             </span>
-            <StatusChip status={status} />
+            <StatusChip status={status} onReconnect={onReconnect} />
           </div>
         </div>
         <button

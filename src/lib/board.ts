@@ -174,15 +174,36 @@ export function cleanItems(items: readonly string[]): string[] {
   return items.map((s) => s.trim()).filter((s) => s.length > 0);
 }
 
-/** Build the shared 25-square card. Identical for everyone with the same room code. */
-export function buildCard(items: readonly string[], roomCode: string, opts: CardOptions): string[] {
+/** Build a 25-square card. Identical for everyone who uses the same seed. */
+export function buildCard(items: readonly string[], seed: string, opts: CardOptions): string[] {
   const clean = cleanItems(items);
   const need = requiredItemCount(opts.freeCenter);
-  const pool = opts.keepOrder ? clean : seededShuffle(clean, roomCode.toUpperCase());
+  const pool = opts.keepOrder ? clean : seededShuffle(clean, seed.toUpperCase());
   const picked = pool.slice(0, need);
   while (picked.length < need) picked.push('—');
   if (opts.freeCenter) picked.splice(CENTER_INDEX, 0, opts.freeText?.trim() || FREE_SQUARE_TEXT);
   return picked;
+}
+
+/**
+ * Re-express marks made on one card layout in another layout's positions, matching by square text.
+ * Used to show a friend's crossed-off squares when everyone has their own shuffle.
+ * Squares the other card doesn't have are dropped; duplicate texts are matched one-to-one.
+ */
+export function translateMarks(marks: Marks, fromCard: readonly string[], toCard: readonly string[]): Marks {
+  const slots = new Map<string, number[]>();
+  toCard.forEach((text, i) => {
+    const list = slots.get(text);
+    if (list) list.push(i);
+    else slots.set(text, [i]);
+  });
+  let out = 0;
+  fromCard.forEach((text, i) => {
+    if (!isMarked(marks, i)) return;
+    const target = slots.get(text)?.shift();
+    if (target !== undefined) out = setMark(out, target, true);
+  });
+  return out;
 }
 
 // ---------- event diffing ----------

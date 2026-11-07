@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { appTitle } from '../config/content';
-import { useGame } from '../hooks/useGame';
+import { cardFor, useGame } from '../hooks/useGame';
+import { translateMarks } from '../lib/board';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useRoom, type Identity } from '../hooks/useRoom';
 import { useSettings } from '../hooks/useSettings';
@@ -134,7 +135,14 @@ export function Game({ roomCode, config, identity, solo, onLeave }: Props) {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = room.players.find((p) => p.playerId === selectedId) ?? null;
-  const highlight = selected && !selected.isMe ? { marks: selected.marked, color: selected.color } : null;
+  const highlight = useMemo(() => {
+    if (!selected || selected.isMe) return null;
+    // with per-player shuffles their bitmask is in *their* layout: map it onto mine by square text
+    const marks = config.shufflePerPlayer
+      ? translateMarks(selected.marked, cardFor(config, roomCode, selected.playerId), card)
+      : selected.marked;
+    return { marks, color: selected.color };
+  }, [selected, config, roomCode, card]);
 
   // ---------- mobile feed sheet ----------
 
@@ -163,7 +171,7 @@ export function Game({ roomCode, config, identity, solo, onLeave }: Props) {
       <Header
         title={config.title}
         roomCode={roomCode}
-        playerCount={room.players.length}
+        playerCount={room.players.filter((p) => p.online).length}
         status={room.status}
         settings={settings}
         onSettings={update}
@@ -171,6 +179,7 @@ export function Game({ roomCode, config, identity, solo, onLeave }: Props) {
         onInvite={handleInvite}
         onCopyCode={handleCopyCode}
         onLeave={onLeave}
+        onReconnect={room.reconnect}
       />
 
       <PlayersStrip players={room.players} selectedId={selectedId} onSelect={setSelectedId} />

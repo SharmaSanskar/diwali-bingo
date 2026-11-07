@@ -22,16 +22,18 @@ export interface ToggleResult {
   events: GameEvent[];
 }
 
+/** The card a given player sees. Deterministic, so we can rebuild a friend's layout too. */
+export function cardFor(config: BoardConfig, roomCode: string, playerId: string): string[] {
+  const perPlayer = config.shufflePerPlayer === true;
+  return buildCard(config.items, perPlayer ? `${roomCode}:${playerId}` : roomCode, {
+    freeCenter: config.freeCenter,
+    keepOrder: config.keepOrder && !perPlayer,
+    freeText: config.freeText,
+  });
+}
+
 export function useGame(roomCode: string, config: BoardConfig, playerId: string) {
-  const card = useMemo(
-    () =>
-      buildCard(config.items, roomCode, {
-        freeCenter: config.freeCenter,
-        keepOrder: config.keepOrder,
-        freeText: config.freeText,
-      }),
-    [config.items, config.freeCenter, config.keepOrder, config.freeText, roomCode],
-  );
+  const card = useMemo(() => cardFor(config, roomCode, playerId), [config, roomCode, playerId]);
 
   const [marks, setMarks] = useState<Marks>(() => {
     let m = loadMarks(roomCode, playerId) ?? initialMarks(config.freeCenter);

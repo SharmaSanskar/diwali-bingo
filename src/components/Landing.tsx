@@ -72,7 +72,7 @@ export function Landing({ profile, onProfileChange, navigate }: Props) {
 
       <section className="glass mt-4 rounded-3xl p-5">
         <h2 className="font-display text-2xl font-extrabold text-gold">Host the party board</h2>
-        <p className="mt-1 text-sm text-cream/85">The poster board, all 25 squares exactly as printed. One tap, one link to share.</p>
+        <p className="mt-1 text-sm text-cream/85">All the poster’s squares, shuffled differently for every player. One tap, one link to share.</p>
         <button
           type="button"
           className="btn-primary mt-4 h-14 w-full text-lg"

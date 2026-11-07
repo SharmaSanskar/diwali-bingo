@@ -35,14 +35,15 @@ export const partyItems = [
 
 export const partyFreeText = '“I’m not drinking much”';
 
-/** The quick-start board: exact poster layout, free center, no shuffle. */
+/** The quick-start board: the poster's squares, shuffled differently for each player, same free center. */
 export const defaultBoard: BoardConfig = {
   title: 'Chilcott Diwali Party',
   items: partyItems,
   freeCenter: true,
-  keepOrder: true,
+  keepOrder: false,
   hideItemText: false,
   freeText: partyFreeText,
+  shufflePerPlayer: true,
 };
 
 /** House rules from the poster. Shown under the board. */
@@ -62,6 +63,7 @@ export interface Template {
   items: string[];
   keepOrder?: boolean;
   freeText?: string;
+  shufflePerPlayer?: boolean;
 }
 
 export const templates: Template[] = [
@@ -69,8 +71,8 @@ export const templates: Template[] = [
     id: 'chilcott',
     title: 'Chilcott Diwali Party',
     items: partyItems,
-    keepOrder: true,
     freeText: partyFreeText,
+    shufflePerPlayer: true,
   },
   {
     id: 'default',

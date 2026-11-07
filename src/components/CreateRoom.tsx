@@ -50,6 +50,7 @@ export function CreateRoom({ quick = false, onBack, navigate }: Props) {
   const [freeCenter, setFreeCenter] = useState(true);
   const [freeText, setFreeText] = useState(templates[0].freeText ?? '');
   const [keepOrder, setKeepOrder] = useState(templates[0].keepOrder ?? false);
+  const [perPlayer, setPerPlayer] = useState(templates[0].shufflePerPlayer ?? true);
   const [hideItemText, setHideItemText] = useState(false);
   const [created, setCreated] = useState<{ code: string; config: BoardConfig } | null>(() =>
     quick ? { code: genRoomCode(), config: defaultBoard } : null,
@@ -75,13 +76,15 @@ export function CreateRoom({ quick = false, onBack, navigate }: Props) {
     if (dupes) warnings.push(`${dupes} duplicate item${dupes > 1 ? 's' : ''}. They may show up twice on the card.`);
     if (items.length > need) {
       warnings.push(
-        keepOrder
-          ? `Only the first ${need} items will be used (in order).`
-          : `The room picks ${need} of your ${items.length} items, shuffled the same way for everyone.`,
+        perPlayer
+          ? `Each player gets ${need} of your ${items.length} items, so cards won’t all have the same squares.`
+          : keepOrder
+            ? `Only the first ${need} items will be used (in order).`
+            : `The room picks ${need} of your ${items.length} items, shuffled the same way for everyone.`,
       );
     }
     return { errors, warnings };
-  }, [title, items, need, freeCenter, keepOrder]);
+  }, [title, items, need, freeCenter, keepOrder, perPlayer]);
 
   const pickTemplate = (id: string) => {
     const t = templates.find((x) => x.id === id);
@@ -90,6 +93,7 @@ export function CreateRoom({ quick = false, onBack, navigate }: Props) {
     setTitle(t.title);
     setItemsText(t.items.join('\n'));
     setKeepOrder(t.keepOrder ?? false);
+    setPerPlayer(t.shufflePerPlayer ?? true);
     setFreeText(t.freeText ?? '');
   };
 
@@ -101,9 +105,10 @@ export function CreateRoom({ quick = false, onBack, navigate }: Props) {
       title: title.trim(),
       items,
       freeCenter,
-      keepOrder,
+      keepOrder: keepOrder && !perPlayer,
       hideItemText,
       ...(freeCenter && freeText.trim() ? { freeText: freeText.trim() } : {}),
+      ...(perPlayer ? { shufflePerPlayer: true } : {}),
     };
     setCreated({ code: genRoomCode(), config });
   };
@@ -273,12 +278,21 @@ export function CreateRoom({ quick = false, onBack, navigate }: Props) {
             </div>
           )}
           <Toggle
-            id="opt-order"
-            label="Keep my item order"
-            hint="Don’t shuffle. Squares fill the card left to right, top to bottom."
-            checked={keepOrder}
-            onChange={setKeepOrder}
+            id="opt-perplayer"
+            label="Shuffle each player’s card"
+            hint="Same squares, different layout for everyone, so nobody gets bingo at the same moment."
+            checked={perPlayer}
+            onChange={setPerPlayer}
           />
+          {!perPlayer && (
+            <Toggle
+              id="opt-order"
+              label="Keep my item order"
+              hint="Don’t shuffle. Squares fill the card left to right, top to bottom."
+              checked={keepOrder}
+              onChange={setKeepOrder}
+            />
+          )}
           <Toggle
             id="opt-hide"
             label="Hide item text in the feed"

@@ -46,6 +46,8 @@ export interface RoomHandlers {
 export interface RoomConnection {
   send: (msg: RoomMessage) => void;
   track: (presence: PresenceState) => void;
+  /** Force a fresh connection now (e.g. user tapped "reconnect"). */
+  reconnect: () => void;
   leave: () => void;
 }
 
@@ -128,6 +130,16 @@ function flattenPresence(channel: RealtimeChannel): PresenceState[] {
  */
 const pendingRemovals = new Map<string, Promise<unknown>>();
 
+/** If a (re)connect hasn't succeeded by now, tear everything down and start fresh. */
+const CONNECT_WATCHDOG_MS = 10_000;
+/** After an error/close, wait this long before forcing a fresh connection. */
+const RETRY_DELAY_MS = 1_500;
+/** Mobile browsers silently kill sockets in the background; after this long hidden, assume it's dead. */
+const HIDDEN_RESTART_MS = 5_000;
+
+const withTimeout = <T,>(p: Promise<T>, ms: number) =>
+  Promise.race([p, new Promise<void>((r) => window.setTimeout(r, ms))]);
+
 export function connectRoom(
   client: SupabaseClient,
   roomCode: string,
@@ -139,7 +151,33 @@ export function connectRoom(
   let subscribed = false;
   let synced = false;
   let closedByUs = false;
+  let restarting = false;
   let latest: PresenceState | null = null;
+  let watchdog: number | null = null;
+  let retryTimer: number | null = null;
+  let hiddenAt: number | null = null;
+
+  const clearTimers = () => {
+    if (watchdog !== null) window.clearTimeout(watchdog);
+    if (retryTimer !== null) window.clearTimeout(retryTimer);
+    watchdog = null;
+    retryTimer = null;
+  };
+
+  /** Drop a channel without waiting on a possibly dead socket. */
+  const dropChannel = async (ch: RealtimeChannel) => {
+    await withTimeout(client.removeChannel(ch).catch(() => undefined), 2_000);
+    // if the graceful removal didn't finish, force it out so the topic can be reused
+    const rt = client.realtime as unknown as { channels: RealtimeChannel[] };
+    if (rt.channels.includes(ch)) {
+      try {
+        ch.teardown();
+      } catch {
+        // ignore
+      }
+      rt.channels = rt.channels.filter((c) => c !== ch);
+    }
+  };
 
   const open = () => {
     if (closedByUs) return;
@@ -147,39 +185,96 @@ export function connectRoom(
       config: { broadcast: { self: false, ack: false }, presence: { key: playerId } },
     });
     channel = ch;
+    synced = false;
 
     ch.on('presence', { event: 'sync' }, () => {
+      if (ch !== channel) return;
       synced = true;
       handlers.onSync(flattenPresence(ch));
     });
     ch.on('presence', { event: 'join' }, ({ newPresences }) => {
+      if (ch !== channel) return;
       const list = (newPresences as unknown[]).map(parsePresence).filter((p): p is PresenceState => p !== null);
       handlers.onJoin(list, !synced);
     });
     ch.on('presence', { event: 'leave' }, ({ leftPresences }) => {
+      if (ch !== channel) return;
       const list = (leftPresences as unknown[]).map(parsePresence).filter((p): p is PresenceState => p !== null);
       handlers.onLeave(list);
     });
     for (const event of EVENTS) {
       ch.on('broadcast', { event }, (msg: { payload?: unknown }) => {
+        if (ch !== channel) return;
         const parsed = parseMessage(event, msg.payload);
         if (parsed) handlers.onMessage(parsed);
       });
     }
 
+    clearTimers();
+    watchdog = window.setTimeout(() => {
+      watchdog = null;
+      if (ch === channel && !subscribed) void restart();
+    }, CONNECT_WATCHDOG_MS);
+
     ch.subscribe((status) => {
-      if (closedByUs) return;
+      if (closedByUs || ch !== channel) return; // stale callback from a replaced channel
       const s = String(status);
       if (s === 'SUBSCRIBED') {
         subscribed = true;
+        clearTimers();
         handlers.onStatus('connected');
         if (latest) void ch.track(latest).catch(() => undefined); // (re-)track on every (re)connect
       } else if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT' || s === 'CLOSED') {
         subscribed = false;
         handlers.onStatus('reconnecting');
+        // don't sit in the library's slow backoff: force a clean reconnect shortly
+        if (retryTimer === null) {
+          retryTimer = window.setTimeout(() => {
+            retryTimer = null;
+            void restart();
+          }, RETRY_DELAY_MS);
+        }
       }
     });
   };
+
+  /** Throw away the socket and channel and connect again from scratch. */
+  const restart = async () => {
+    if (closedByUs || restarting) return;
+    restarting = true;
+    clearTimers();
+    subscribed = false;
+    handlers.onStatus('reconnecting');
+    const old = channel;
+    channel = null; // makes any late callbacks from the old channel no-ops
+    try {
+      // close the (possibly half-dead) socket first so unsubscribe resolves instantly
+      await withTimeout(client.realtime.disconnect().catch(() => undefined), 1_500);
+      if (old) await dropChannel(old);
+    } finally {
+      restarting = false;
+    }
+    open();
+  };
+
+  // ---------- page lifecycle: phones lock, apps switch, networks drop ----------
+
+  const onVisibility = () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now();
+      return;
+    }
+    const hiddenFor = hiddenAt === null ? 0 : Date.now() - hiddenAt;
+    hiddenAt = null;
+    if (!subscribed || hiddenFor > HIDDEN_RESTART_MS) void restart();
+  };
+  const onOnline = () => void restart();
+  const onPageShow = (e: PageTransitionEvent) => {
+    if (e.persisted) void restart(); // restored from the back/forward cache with a dead socket
+  };
+  document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('online', onOnline);
+  window.addEventListener('pageshow', onPageShow);
 
   const pending = pendingRemovals.get(topic);
   if (pending) void pending.then(open, open);
@@ -194,18 +289,22 @@ export function connectRoom(
       latest = presence;
       if (subscribed && channel) void channel.track(presence).catch(() => undefined);
     },
+    reconnect() {
+      void restart();
+    },
     leave() {
       closedByUs = true;
       subscribed = false;
+      clearTimers();
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('pageshow', onPageShow);
       const ch = channel;
       channel = null;
       if (!ch) return;
-      const removal = client
-        .removeChannel(ch)
-        .catch(() => undefined)
-        .finally(() => {
-          if (pendingRemovals.get(topic) === removal) pendingRemovals.delete(topic);
-        });
+      const removal = dropChannel(ch).finally(() => {
+        if (pendingRemovals.get(topic) === removal) pendingRemovals.delete(topic);
+      });
       pendingRemovals.set(topic, removal);
     },
   };

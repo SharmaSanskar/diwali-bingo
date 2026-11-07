@@ -19,14 +19,14 @@ export function PlayersStrip({ players, selectedId, onSelect }: Props) {
                 type="button"
                 onClick={() => onSelect(selected ? null : p.playerId)}
                 aria-pressed={selected}
-                aria-label={`${p.isMe ? 'You' : p.name}: ${p.markedCount} of 25 crossed off${
+                aria-label={`${p.isMe ? 'You' : p.name}${p.online ? '' : ' (away)'}: ${p.markedCount} of 25 crossed off${
                   p.completedLineCount ? `, ${p.completedLineCount} lines` : ''
                 }${p.oneAway ? ', one away' : ''}${p.fullBoard ? ', full board' : ''}. ${
                   selected ? 'Hide' : 'Show'
                 } their squares.`}
                 className={`flex min-h-11 items-center gap-2 rounded-full border-2 py-1 pl-1 pr-3 transition ${
                   selected ? 'border-ink bg-gold text-berry shadow-[2px_2px_0_var(--color-ink)]' : 'border-gold/60 bg-night/70 hover:bg-night'
-                }`}
+                } ${p.online ? '' : 'border-dashed opacity-60'}`}
               >
                 <span
                   className="relative grid h-8 w-8 place-items-center rounded-full text-lg"
@@ -43,6 +43,11 @@ export function PlayersStrip({ players, selectedId, onSelect }: Props) {
                 <span className="max-w-[6.5rem] truncate text-sm font-medium" aria-hidden="true">
                   {p.isMe ? `${p.name} (you)` : p.name}
                 </span>
+                {!p.online && (
+                  <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80" aria-hidden="true">
+                    away
+                  </span>
+                )}
                 <span
                   className="rounded-full bg-ink/40 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-gold"
                   aria-hidden="true"

@@ -122,6 +122,29 @@ export function saveMemory(room: string, playerId: string, memory: AnnounceMemor
   write(`memory:${room}:${playerId}`, memory);
 }
 
+// ---------- room roster (players seen in a room, so people who step away stay listed) ----------
+
+export interface RosterEntry {
+  presence: unknown;
+  lastSeen: number;
+}
+
+const ROSTER_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const ROSTER_MAX = 60;
+
+export function loadRoster(room: string): RosterEntry[] {
+  const v = readRaw(`roster:${room}`);
+  if (!Array.isArray(v)) return [];
+  const now = Date.now();
+  return v
+    .filter((e): e is RosterEntry => isRecord(e) && typeof e.lastSeen === 'number' && isRecord(e.presence))
+    .filter((e) => now - e.lastSeen < ROSTER_MAX_AGE_MS);
+}
+
+export function saveRoster(room: string, entries: RosterEntry[]): void {
+  write(`roster:${room}`, entries.slice(-ROSTER_MAX));
+}
+
 // ---------- settings ----------
 
 export interface Settings {

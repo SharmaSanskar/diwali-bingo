@@ -14,7 +14,8 @@ export function getSupabase(): SupabaseClient | null {
   if (!client) {
     client = createClient(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      realtime: { params: { eventsPerSecond: 20 } },
+      // shorter heartbeat so a dead socket is noticed in ~15s instead of ~25s
+      realtime: { params: { eventsPerSecond: 20 }, heartbeatIntervalMs: 15_000 },
     });
   }
   return client;

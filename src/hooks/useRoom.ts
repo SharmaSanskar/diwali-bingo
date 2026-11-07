@@ -6,7 +6,8 @@ import { lineReward } from '../config/content';
 import { fullBoardText, joinText, lineText, markText, oneAwayText } from '../lib/messages';
 import { connectRoom, type PresenceState, type RoomConnection, type RoomMessage, type RoomStatus } from '../lib/room';
 import type { BoardConfig } from '../lib/share';
-import type { Settings } from '../lib/storage';
+import { loadRoster, saveRoster, type Settings } from '../lib/storage';
+import { parsePresence } from '../lib/room';
 import { getSupabase } from '../lib/supabase';
 
 export type FeedKind = 'mark' | 'line' | 'one_away' | 'full_board' | 'join' | 'system';
@@ -54,6 +55,8 @@ export interface Identity {
 
 export interface PlayerView extends PresenceState {
   isMe: boolean;
+  /** false when they've closed the tab / locked the phone; they stay listed with their last progress */
+  online: boolean;
 }
 
 interface Options {
@@ -89,6 +92,19 @@ export function useRoom({ roomCode, config, card, identity, solo, settings, myPr
 
   const [status, setStatus] = useState<RoomStatus>(solo ? 'solo' : 'connecting');
   const [remotePlayers, setRemotePlayers] = useState<PresenceState[]>([]);
+  /** Everyone ever seen in this room on this device (insertion order = first seen). */
+  const lastSeenRef = useRef(new Map<string, number>());
+  const [roster, setRoster] = useState<Map<string, PresenceState>>(() => {
+    const m = new Map<string, PresenceState>();
+    for (const e of loadRoster(roomCode)) {
+      const p = parsePresence(e.presence);
+      if (p && p.playerId !== identity.playerId) {
+        m.set(p.playerId, p);
+        lastSeenRef.current.set(p.playerId, e.lastSeen);
+      }
+    }
+    return m;
+  });
   const [feed, setFeed] = useState<FeedEntry[]>(() => [
     { id: 1, ts: Date.now(), kind: 'system', text: 'You joined the room ✨', self: true },
   ]);
@@ -260,7 +276,23 @@ export function useRoom({ roomCode, config, card, identity, solo, settings, myPr
       onStatus: setStatus,
       onSync: (list) => {
         list.forEach(remember);
-        setRemotePlayers(list.filter((p) => p.playerId !== me));
+        const others = list.filter((p) => p.playerId !== me);
+        setRemotePlayers(others);
+        if (others.length) {
+          setRoster((prev) => {
+            const next = new Map(prev);
+            const now = Date.now();
+            for (const p of others) {
+              next.set(p.playerId, p); // keeps first-seen position, updates progress
+              lastSeenRef.current.set(p.playerId, now);
+            }
+            saveRoster(
+              roomCode,
+              [...next.values()].map((p) => ({ presence: p, lastSeen: lastSeenRef.current.get(p.playerId) ?? now })),
+            );
+            return next;
+          });
+        }
       },
       onJoin: (list, initial) => {
         const now = Date.now();
@@ -403,14 +435,24 @@ export function useRoom({ roomCode, config, card, identity, solo, settings, myPr
 
   // ---------- players (me first, then stable first-seen order; never ranked) ----------
 
+  // me first, then everyone here now, then people who stepped away (dimmed, last known progress)
   const players: PlayerView[] = useMemo(() => {
-    const order = orderRef.current;
-    const others = remotePlayers
-      .filter((p) => p.playerId !== identity.playerId)
-      .sort((a, b) => (order.get(a.playerId) ?? 1e9) - (order.get(b.playerId) ?? 1e9))
-      .map((p) => ({ ...p, isMe: false }));
-    return [{ ...myPresence, isMe: true }, ...others];
-  }, [remotePlayers, myPresence, identity.playerId]);
+    const live = new Map(remotePlayers.map((p) => [p.playerId, p]));
+    const online: PlayerView[] = [];
+    const away: PlayerView[] = [];
+    for (const [id, p] of roster) {
+      if (id === identity.playerId) continue;
+      const now = live.get(id);
+      if (now) online.push({ ...now, isMe: false, online: true });
+      else away.push({ ...p, isMe: false, online: false });
+    }
+    for (const p of remotePlayers) {
+      if (p.playerId !== identity.playerId && !roster.has(p.playerId)) online.push({ ...p, isMe: false, online: true });
+    }
+    return [{ ...myPresence, isMe: true, online: true }, ...online, ...away];
+  }, [remotePlayers, roster, myPresence, identity.playerId]);
+
+  const reconnect = useCallback(() => connRef.current?.reconnect(), []);
 
   return {
     status,
@@ -425,5 +467,6 @@ export function useRoom({ roomCode, config, card, identity, solo, settings, myPr
     sendReaction,
     track,
     info,
+    reconnect,
   };
 }

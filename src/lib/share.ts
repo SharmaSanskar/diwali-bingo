@@ -8,6 +8,8 @@ export interface BoardConfig {
   hideItemText: boolean;
   /** Text for the free center square (defaults to FREE). */
   freeText?: string;
+  /** Every player gets their own shuffle of the items (seeded by room + player, so it's stable). */
+  shufflePerPlayer?: boolean;
 }
 
 interface WireConfig {
@@ -18,6 +20,7 @@ interface WireConfig {
   k: 0 | 1;
   h: 0 | 1;
   c?: string;
+  s?: 1;
 }
 
 const MAX_TITLE = 80;
@@ -38,6 +41,7 @@ export function encodeConfig(config: BoardConfig): string {
     h: config.hideItemText ? 1 : 0,
   };
   if (config.freeText && config.freeText.trim()) wire.c = config.freeText.trim();
+  if (config.shufflePerPlayer) wire.s = 1;
   return LZString.compressToEncodedURIComponent(JSON.stringify(wire));
 }
 
@@ -57,6 +61,7 @@ export function decodeConfig(encoded: string): BoardConfig | null {
       keepOrder: data.k === 1,
       hideItemText: data.h === 1,
       ...(typeof data.c === 'string' && data.c.trim() ? { freeText: data.c.trim().slice(0, MAX_ITEM) } : {}),
+      ...(data.s === 1 ? { shufflePerPlayer: true } : {}),
     };
   } catch {
     return null;
